@@ -241,7 +241,7 @@ function generarGaleriaMusica() {
           <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" 
                alt="${cancion.titulo}"
                onerror="this.onerror=null; this.src='https://img.youtube.com/vi/${cancion.id}/hqdefault.jpg'">
-          <button class="boton_play_pausa" id="boton_play_pausa_${numero}" disabled>⌛</button>
+          <button class="boton_play_pausa" id="boton_play_pausa_${numero}" disabled>...</button>
           
           <div id="player_${numero}"></div>
           
@@ -365,3 +365,4 @@ setTimeout(() => {
     inicializarTodosLosReproductores();
   }
 }, 3000);
+
