@@ -221,10 +221,13 @@ document.addEventListener("DOMContentLoaded", function () {
 function controlarReproduccion(numero) {
   const player = canciones[numero].player;
 
+  if (!player) return;
+
   if (estaReproduciendo && cancionActual === numero) {
     player.pauseVideo();
   } else {
-    if (cancionActual !== numero && canciones[cancionActual]?.player) {
+    // Pausar otra canción si está reproduciéndose
+    if (cancionActual !== numero && cancionActual !== null && canciones[cancionActual]?.player) {
       canciones[cancionActual].player.pauseVideo();
     }
     player.playVideo();
@@ -234,19 +237,19 @@ function controlarReproduccion(numero) {
 function adelantarRetroceder(e, numero) {
   const player = canciones[numero].player;
 
-  if (player && player.getDuration) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const nuevoPorcentaje = (clickX / rect.width) * 100;
-    const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
+  if (!player || !player.getDuration) return;
 
-    player.seekTo(nuevoTiempo, true);
+  const rect = e.currentTarget.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const nuevoPorcentaje = (clickX / rect.width) * 100;
+  const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
 
-    if (!estaReproduciendo || cancionActual !== numero) {
-      if (cancionActual !== numero && canciones[cancionActual]?.player) {
-        canciones[cancionActual].player.pauseVideo();
-      }
-      player.playVideo();
+  player.seekTo(nuevoTiempo, true);
+
+  if (!estaReproduciendo || cancionActual !== numero) {
+    if (cancionActual !== numero && cancionActual !== null && canciones[cancionActual]?.player) {
+      canciones[cancionActual].player.pauseVideo();
     }
+    player.playVideo();
   }
 }
