@@ -43,15 +43,20 @@ const canciones = {};
 let cancionActual = null;
 let estaReproduciendo = false;
 let intervaloProgreso;
+let apiLista = false;
+let reproductoresListos = 0;
 
 // Inicializar la API de YouTube
 function onYouTubeIframeAPIReady() {
+  console.log('YouTube API Ready - Inicializando reproductores...');
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
 
     canciones[numero] = {
       videoId: cancion.id,
       player: null,
+      estaListo: false,
+      elemento: null
     };
 
     const config = {
@@ -69,28 +74,54 @@ function onYouTubeIframeAPIReady() {
       events: {
         onReady: (event) => onPlayerReady(event, numero),
         onStateChange: (event) => onPlayerStateChange(event, numero),
+        onError: (event) => onPlayerError(event, numero)
       },
     };
 
-    canciones[numero].player = new YT.Player(`player_${numero}`, config);
+    try {
+      canciones[numero].player = new YT.Player(`player_${numero}`, config);
+      canciones[numero].elemento = document.getElementById(`player_${numero}`);
+    } catch (error) {
+      console.error(`Error creando reproductor ${numero}:`, error);
+      canciones[numero].estaListo = false;
+    }
   });
 }
 
 // Reproductor listo
 function onPlayerReady(event, numero) {
+  console.log(`Reproductor ${numero} listo`);
   const player = canciones[numero].player;
-  const duration = player.getDuration();
+  canciones[numero].estaListo = true;
+  reproductoresListos++;
 
+  const duration = player.getDuration();
   if (duration > 0) {
     document.getElementById(`tiempo_total_${numero}`).textContent =
       formatearTiempo(duration);
   }
 
-  document.getElementById(`player_${numero}`).style.display = "none";
+  if (canciones[numero].elemento) {
+    canciones[numero].elemento.style.display = "none";
+  }
+
+  // Verificar si todos los reproductores están listos
+  if (reproductoresListos === misCanciones.length) {
+    apiLista = true;
+    console.log('Todos los reproductores están listos');
+  }
+}
+
+// Manejar errores del reproductor
+function onPlayerError(event, numero) {
+  console.error(`Error en reproductor ${numero}:`, event.data);
+  canciones[numero].estaListo = false;
 }
 
 // Cambia el estado del reproductor
 function onPlayerStateChange(event, numero) {
+  if (!canciones[numero] || !canciones[numero].estaListo) return;
+
   const player = canciones[numero].player;
   const portada = document.getElementById(`cancion_portada_${numero}`);
   const botonPlay = document.getElementById(`boton_play_pausa_${numero}`);
@@ -135,6 +166,8 @@ function formatearTiempo(segundos) {
 }
 
 function actualizarProgreso(numero) {
+  if (!canciones[numero] || !canciones[numero].estaListo) return;
+  
   const player = canciones[numero].player;
   if (player && player.getCurrentTime) {
     const tiempoActual = player.getCurrentTime();
@@ -219,6 +252,28 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function controlarReproduccion(numero) {
+  // Verificar si el reproductor está listo
+  if (!canciones[numero] || !canciones[numero].estaListo) {
+    console.warn(`Reproductor ${numero} no está listo aún`);
+    
+    // Mostrar mensaje de carga
+    const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
+    const originalText = btnPlay.textContent;
+    btnPlay.textContent = "⋯";
+    btnPlay.disabled = true;
+    
+    // Intentar nuevamente después de un breve tiempo
+    setTimeout(() => {
+      btnPlay.textContent = originalText;
+      btnPlay.disabled = false;
+      if (canciones[numero] && canciones[numero].estaListo) {
+        controlarReproduccion(numero);
+      }
+    }, 500);
+    
+    return;
+  }
+
   const player = canciones[numero].player;
 
   if (estaReproduciendo && cancionActual === numero) {
@@ -232,6 +287,11 @@ function controlarReproduccion(numero) {
 }
 
 function adelantarRetroceder(e, numero) {
+  if (!canciones[numero] || !canciones[numero].estaListo) {
+    console.warn(`Reproductor ${numero} no está listo para adelantar/retroceder`);
+    return;
+  }
+
   const player = canciones[numero].player;
 
   if (player && player.getDuration) {
@@ -250,3 +310,19 @@ function adelantarRetroceder(e, numero) {
     }
   }
 }
+
+// Función para verificar el estado de los reproductores (útil para debugging)
+function verificarEstadoReproductores() {
+  console.log('Estado de los reproductores:');
+  misCanciones.forEach((cancion, index) => {
+    const numero = index + 1;
+    console.log(`Reproductor ${numero}:`, {
+      listo: canciones[numero]?.estaListo || false,
+      existe: !!canciones[numero],
+      player: !!canciones[numero]?.player
+    });
+  });
+}
+
+// Verificar después de un tiempo por si hay problemas
+setTimeout(verificarEstadoReproductores, 5000);
