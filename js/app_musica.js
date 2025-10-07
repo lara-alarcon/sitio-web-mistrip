@@ -227,13 +227,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function controlarReproduccion(numero) {
-    // 🛑 CAMBIO CLAVE: Verifica si el objeto player existe.
-    // Esto es crucial para manejar el tiempo entre DOMContentLoaded y onYouTubeIframeAPIReady.
-    if (!canciones[numero] || !canciones[numero].player) {
-        console.warn(`Error: Reproductor ${numero} no está listo.`);
-        return; 
-    }
-    
     const player = canciones[numero].player;
     const cancion = misCanciones[numero - 1]; 
 
@@ -243,17 +236,18 @@ function controlarReproduccion(numero) {
     } else {
         // Pausar la canción anterior
         if (cancionActual !== numero && canciones[cancionActual]?.player) {
-            // Aseguramos que la canción anterior también esté lista para pausarse
-            if (canciones[cancionActual].player.pauseVideo) {
-                canciones[cancionActual].player.pauseVideo();
-            }
+            canciones[cancionActual].player.pauseVideo();
         }
 
-        // Usamos loadVideoById para forzar el inicio en móvil.
+        // 🔑 SOLUCIÓN DE ÚLTIMA INSTANCIA: Forzar la carga del video. 
+        // Esto es esencial para que el navegador móvil reconozca el clic.
         player.loadVideoById({
             'videoId': cancion.id,
+            // Si ya tiene un tiempo, retoma, sino empieza en 0
             'startSeconds': player.getCurrentTime() > 0 ? player.getCurrentTime() : 0, 
         });
+        
+        // NO necesitamos player.playVideo() aquí, loadVideoById lo hace automáticamente.
     }
 }
 
@@ -289,5 +283,6 @@ function adelantarRetroceder(e, numero) {
         }
     }
 }
+
 
 
