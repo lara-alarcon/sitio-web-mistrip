@@ -54,14 +54,12 @@ function onPlayerReady(event, numero) {
 
   document.getElementById(`player_${numero}`).style.display = "none";
 
-  // Activar botón y marcar como listo
+  // Activar botón y ocultar "Cargando..."
   const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
   if (btnPlay) {
     btnPlay.disabled = false;
-    btnPlay.dataset.ready = "true"; // ✅ Ahora marca que el player está listo
     btnPlay.textContent = "▶";
   }
-
   const cargando = document.getElementById(`cargando_${numero}`);
   if (cargando) cargando.style.display = "none";
 }
@@ -113,7 +111,7 @@ function formatearTiempo(segundos) {
 
 function actualizarProgreso(numero) {
   const player = canciones[numero]?.player;
-  if (player && player.getCurrentTime && player.getDuration) {
+  if (player && player.getCurrentTime) {
     const tiempoActual = player.getCurrentTime();
     const duracion = player.getDuration();
     const porcentaje = (tiempoActual / duracion) * 100;
@@ -191,9 +189,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function controlarReproduccion(numero) {
   const player = canciones[numero]?.player;
-  const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
-
-  if (!apiCargada || !player || btnPlay?.dataset.ready !== "true") {
+  if (!apiCargada || !player) {
     console.warn(`Player de la canción ${numero} aún no está listo.`);
     return;
   }
@@ -226,5 +222,3 @@ function adelantarRetroceder(e, numero) {
     player.playVideo();
   }
 }
-
-
