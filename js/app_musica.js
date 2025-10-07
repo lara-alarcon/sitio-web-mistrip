@@ -80,6 +80,12 @@ function onYouTubeIframeAPIReady() {
 function onPlayerReady(event, numero) {
   const player = canciones[numero].player;
   const duration = player.getDuration();
+  const botonPlay = document.getElementById(`boton_play_pausa_${numero}`);
+
+  if (botonPlay) {
+    botonPlay.textContent = "▶"; 
+    botonPlay.disabled = false;
+  }
 
   if (duration > 0) {
     document.getElementById(`tiempo_total_${numero}`).textContent =
@@ -161,7 +167,7 @@ function generarGaleriaMusica() {
             <div class="contenedor_cancion">
               <div class="cancion_portada" id="cancion_portada_${numero}">
                 <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" alt="${cancion.titulo}" />
-                <button class="boton_play_pausa" id="boton_play_pausa_${numero}">▶</button>
+                <button class="boton_play_pausa" id="boton_play_pausa_${numero}" disabled>...</button>
 
                 <div id="player_${numero}" style="display: none"></div>
                 <div class="contenedor_barra_progreso" id="contenedor_barra_progreso_${numero}">
@@ -250,3 +256,4 @@ function adelantarRetroceder(e, numero) {
     }
   }
 }
+
