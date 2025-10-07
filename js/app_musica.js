@@ -249,23 +249,29 @@ function controlarReproduccion(numero) {
 }
 
 function adelantarRetroceder(e, numero) {
-  const player = canciones[numero].player;
+    const player = canciones[numero].player;
+    const cancion = misCanciones[numero - 1]; // Obtener los datos de la canción
 
-  if (player && player.getDuration) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const nuevoPorcentaje = (clickX / rect.width) * 100;
-    const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
+    if (player && player.getDuration) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const nuevoPorcentaje = (clickX / rect.width) * 100;
+        const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
 
-    player.seekTo(nuevoTiempo, true);
-
-    if (!estaReproduciendo || cancionActual !== numero) {
-      if (cancionActual !== numero && canciones[cancionActual]?.player) {
-        canciones[cancionActual].player.pauseVideo();
-      }
-      player.playVideo();
+        // Si la canción actual está reproduciendo, solo saltamos el tiempo
+        if (estaReproduciendo && cancionActual === numero) {
+            player.seekTo(nuevoTiempo, true);
+        } else {
+             // Pausar la canción anterior si es diferente
+             if (cancionActual !== numero && canciones[cancionActual]?.player) {
+                canciones[cancionActual].player.pauseVideo();
+             }
+            
+            // 🔑 USAR loadVideoById con el nuevo tiempo para garantizar la reproducción en móvil
+            player.loadVideoById({
+                'videoId': cancion.id,
+                'startSeconds': nuevoTiempo,
+            });
+        }
     }
-  }
 }
-
-
