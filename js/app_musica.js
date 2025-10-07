@@ -53,15 +53,6 @@ function onPlayerReady(event, numero) {
   }
 
   document.getElementById(`player_${numero}`).style.display = "none";
-
-  // Activar botón y ocultar "Cargando..."
-  const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
-  if (btnPlay) {
-    btnPlay.disabled = false;
-    btnPlay.textContent = "▶";
-  }
-  const cargando = document.getElementById(`cargando_${numero}`);
-  if (cargando) cargando.style.display = "none";
 }
 
 // Cambia el estado del reproductor
@@ -133,8 +124,7 @@ function generarGaleriaMusica() {
       <div class="contenedor_cancion">
         <div class="cancion_portada" id="cancion_portada_${numero}">
           <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" alt="${cancion.titulo}" />
-          <button class="boton_play_pausa" id="boton_play_pausa_${numero}" disabled>⏳</button>
-          <div class="cargando" id="cargando_${numero}">Cargando...</div>
+          <button class="boton_play_pausa" id="boton_play_pausa_${numero}">▶</button>
 
           <div id="player_${numero}" style="display: none"></div>
           <div class="contenedor_barra_progreso" id="contenedor_barra_progreso_${numero}">
@@ -188,11 +178,12 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function controlarReproduccion(numero) {
-  const player = canciones[numero]?.player;
-  if (!apiCargada || !player) {
+  if (!apiCargada || !canciones[numero]?.player) {
     console.warn(`Player de la canción ${numero} aún no está listo.`);
     return;
   }
+
+  const player = canciones[numero].player;
 
   if (estaReproduciendo && cancionActual === numero) {
     player.pauseVideo();
@@ -222,6 +213,7 @@ function adelantarRetroceder(e, numero) {
     player.playVideo();
   }
 }
+
 
 
 
