@@ -123,6 +123,10 @@ function onPlayerStateChange(event, numero) {
     resetearProgreso(numero);
     portada.classList.remove("reproduciendo");
     clearInterval(intervaloProgreso);
+  } else if (event.data == -1) {
+    // 💡 GESTIÓN DE ERROR (ESTADO UNSTARTED): Si falla, no hacemos nada.
+    // Esto previene que el reproductor quede en un estado indefinido.
+    return;
   }
 }
 
@@ -224,27 +228,26 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function controlarReproduccion(numero) {
     const player = canciones[numero].player;
-    const cancion = misCanciones[numero - 1]; // Obtener los datos de la canción
+    const cancion = misCanciones[numero - 1]; 
 
     if (estaReproduciendo && cancionActual === numero) {
         // Pausar si es la misma canción
         player.pauseVideo();
     } else {
-        // Pausar la canción anterior si existe
+        // Pausar la canción anterior
         if (cancionActual !== numero && canciones[cancionActual]?.player) {
             canciones[cancionActual].player.pauseVideo();
         }
 
-        // 🔑 SOLUCIÓN FINAL: Usar loadVideoById() para iniciar la reproducción.
-        // Esto le dice al navegador: "El usuario acaba de hacer clic para cargar/reproducir este video".
-        // Le pasamos el ID del video y le indicamos que empiece a reproducir inmediatamente.
+        // 🔑 SOLUCIÓN DE ÚLTIMA INSTANCIA: Forzar la carga del video. 
+        // Esto es esencial para que el navegador móvil reconozca el clic.
         player.loadVideoById({
             'videoId': cancion.id,
-            'startSeconds': player.getCurrentTime() > 0 ? player.getCurrentTime() : 0,
-            // Las opciones 'suggestedQuality' y 'mediaContentUrl' son opcionales
+            // Si ya tiene un tiempo, retoma, sino empieza en 0
+            'startSeconds': player.getCurrentTime() > 0 ? player.getCurrentTime() : 0, 
         });
         
-        // El setVolume(100) lo gestionará onPlayerStateChange cuando pase a PLAYING.
+        // NO necesitamos player.playVideo() aquí, loadVideoById lo hace automáticamente.
     }
 }
 
@@ -275,3 +278,4 @@ function adelantarRetroceder(e, numero) {
         }
     }
 }
+
