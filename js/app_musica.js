@@ -1,61 +1,29 @@
 // Array con datos de las canciones
 const misCanciones = [
-  {
-    id: "xPHfFHI4q-Y",
-    titulo: "A Puro Bangarang | Pomni Y Jax",
-    artista: "Mistrip ft. Iris",
-    año: "2025",
-  },
-  {
-    id: "6zXL4ZlMcME",
-    titulo: "DANDADAN MACRO RAP",
-    artista: "Mistrip ft. Bawsersaurus Rex Keylu Kia Miamiamiau & MisSy",
-    año: "2025",
-  },
-  {
-    id: "a1rQ2qfq8-Y",
-    titulo: "Fantastic 4: Primeros pasos RAP",
-    artista: "Mistrip ft. Bawsersaurus Rex! & Miamiamiau",
-    año: "2025",
-  },
-  {
-    id: "9WOj8z-gPpA",
-    titulo: "SENDOKAI MACRO RAP",
-    artista: "Mistrip ft. Yaelol D, Iris, MisSy & Kenkisaurio",
-    año: "2025",
-  },
-  {
-    id: "TEJzDo5aK04",
-    titulo: "RICK SANCHEZ RAP - BALA INTERDIMENSIONAL",
-    artista: "Mistrip",
-    año: "2025",
-  },
-  {
-    id: "jigfUWdTwSU",
-    titulo: "Momo x Okarun RAP",
-    artista: "Mistrip",
-    año: "2025",
-  },
+  { id: "xPHfFHI4q-Y", titulo: "A Puro Bangarang | Pomni Y Jax", artista: "Mistrip ft. Iris", año: "2025" },
+  { id: "6zXL4ZlMcME", titulo: "DANDADAN MACRO RAP", artista: "Mistrip ft. Bawsersaurus Rex Keylu Kia Miamiamiau & MisSy", año: "2025" },
+  { id: "a1rQ2qfq8-Y", titulo: "Fantastic 4: Primeros pasos RAP", artista: "Mistrip ft. Bawsersaurus Rex! & Miamiamiau", año: "2025" },
+  { id: "9WOj8z-gPpA", titulo: "SENDOKAI MACRO RAP", artista: "Mistrip ft. Yaelol D, Iris, MisSy & Kenkisaurio", año: "2025" },
+  { id: "TEJzDo5aK04", titulo: "RICK SANCHEZ RAP - BALA INTERDIMENSIONAL", artista: "Mistrip", año: "2025" },
+  { id: "jigfUWdTwSU", titulo: "Momo x Okarun RAP", artista: "Mistrip", año: "2025" },
 ];
 
 // YouTube IFrame API
 const canciones = {};
-const playerListo = {}; // <-- nuevo objeto para saber si el player está listo
 let cancionActual = null;
 let estaReproduciendo = false;
 let intervaloProgreso;
+let apiCargada = false;
 
 // Inicializar la API de YouTube
 function onYouTubeIframeAPIReady() {
+  apiCargada = true;
+
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
+    canciones[numero] = { videoId: cancion.id, player: null };
 
-    canciones[numero] = {
-      videoId: cancion.id,
-      player: null,
-    };
-
-    const config = {
+    canciones[numero].player = new YT.Player(`player_${numero}`, {
       videoId: cancion.id,
       height: "0",
       width: "0",
@@ -71,25 +39,29 @@ function onYouTubeIframeAPIReady() {
         onReady: (event) => onPlayerReady(event, numero),
         onStateChange: (event) => onPlayerStateChange(event, numero),
       },
-    };
-
-    canciones[numero].player = new YT.Player(`player_${numero}`, config);
+    });
   });
 }
 
 // Reproductor listo
 function onPlayerReady(event, numero) {
   const player = canciones[numero].player;
-  playerListo[numero] = true; // <-- marcamos el player como listo
-
   const duration = player.getDuration();
 
   if (duration > 0) {
-    document.getElementById(`tiempo_total_${numero}`).textContent =
-      formatearTiempo(duration);
+    document.getElementById(`tiempo_total_${numero}`).textContent = formatearTiempo(duration);
   }
 
   document.getElementById(`player_${numero}`).style.display = "none";
+
+  // Activar botón y ocultar "Cargando..."
+  const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
+  if (btnPlay) {
+    btnPlay.disabled = false;
+    btnPlay.textContent = "▶";
+  }
+  const cargando = document.getElementById(`cargando_${numero}`);
+  if (cargando) cargando.style.display = "none";
 }
 
 // Cambia el estado del reproductor
@@ -138,18 +110,15 @@ function formatearTiempo(segundos) {
 }
 
 function actualizarProgreso(numero) {
-  const player = canciones[numero].player;
+  const player = canciones[numero]?.player;
   if (player && player.getCurrentTime) {
     const tiempoActual = player.getCurrentTime();
     const duracion = player.getDuration();
     const porcentaje = (tiempoActual / duracion) * 100;
 
-    document.getElementById(`progreso_${numero}`).style.width =
-      porcentaje + "%";
-    document.getElementById(`punto_progreso_${numero}`).style.left =
-      porcentaje + "%";
-    document.getElementById(`tiempo_actual_${numero}`).textContent =
-      formatearTiempo(tiempoActual);
+    document.getElementById(`progreso_${numero}`).style.width = porcentaje + "%";
+    document.getElementById(`punto_progreso_${numero}`).style.left = porcentaje + "%";
+    document.getElementById(`tiempo_actual_${numero}`).textContent = formatearTiempo(tiempoActual);
   }
 }
 
@@ -161,29 +130,30 @@ function generarGaleriaMusica() {
     const numero = index + 1;
 
     const cancionHTML = `
-            <div class="contenedor_cancion">
-              <div class="cancion_portada" id="cancion_portada_${numero}">
-                <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" alt="${cancion.titulo}" />
-                <button class="boton_play_pausa" id="boton_play_pausa_${numero}">▶</button>
+      <div class="contenedor_cancion">
+        <div class="cancion_portada" id="cancion_portada_${numero}">
+          <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" alt="${cancion.titulo}" />
+          <button class="boton_play_pausa" id="boton_play_pausa_${numero}" disabled>⏳</button>
+          <div class="cargando" id="cargando_${numero}">Cargando...</div>
 
-                <div id="player_${numero}" style="display: none"></div>
-                <div class="contenedor_barra_progreso" id="contenedor_barra_progreso_${numero}">
-                  <div class="barra_progreso" id="barra_progreso_${numero}">
-                    <div class="progreso" id="progreso_${numero}"></div>
-                    <div class="punto_progreso" id="punto_progreso_${numero}"></div>
-                  </div>
-                  <div class="video_reproductor_tiempo">
-                    <span class="tiempo_actual" id="tiempo_actual_${numero}">0:00</span>
-                    <span class="tiempo_total" id="tiempo_total_${numero}">0:00</span>
-                  </div>
-                </div>
-              </div>
-              <div class="info_cancion">
-                <h3 class="titulo_cancion">${cancion.titulo}</h3>
-                <p class="artista_cancion">${cancion.artista} • ${cancion.año}</p>
-              </div>
+          <div id="player_${numero}" style="display: none"></div>
+          <div class="contenedor_barra_progreso" id="contenedor_barra_progreso_${numero}">
+            <div class="barra_progreso" id="barra_progreso_${numero}">
+              <div class="progreso" id="progreso_${numero}"></div>
+              <div class="punto_progreso" id="punto_progreso_${numero}"></div>
             </div>
-          `;
+            <div class="video_reproductor_tiempo">
+              <span class="tiempo_actual" id="tiempo_actual_${numero}">0:00</span>
+              <span class="tiempo_total" id="tiempo_total_${numero}">0:00</span>
+            </div>
+          </div>
+        </div>
+        <div class="info_cancion">
+          <h3 class="titulo_cancion">${cancion.titulo}</h3>
+          <p class="artista_cancion">${cancion.artista} • ${cancion.año}</p>
+        </div>
+      </div>
+    `;
     galeria.innerHTML += cancionHTML;
   });
 }
@@ -192,7 +162,6 @@ function generarGaleriaMusica() {
 document.addEventListener("DOMContentLoaded", function () {
   generarGaleriaMusica();
 
-  // Configurar event listeners para cada canción
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
     const portada = document.getElementById(`cancion_portada_${numero}`);
@@ -201,37 +170,34 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (!portada || !btnPlay || !barraProgreso) return;
 
-    btnPlay.addEventListener("click", function (e) {
+    btnPlay.addEventListener("click", (e) => {
       e.stopPropagation();
       controlarReproduccion(numero);
     });
 
-    portada.addEventListener("click", function (e) {
-      if (
-        !e.target.closest(".boton_play_pausa") &&
-        !e.target.closest(".barra_progreso")
-      ) {
+    portada.addEventListener("click", (e) => {
+      if (!e.target.closest(".boton_play_pausa") && !e.target.closest(".barra_progreso")) {
         controlarReproduccion(numero);
       }
     });
 
-    barraProgreso.addEventListener("click", function (e) {
+    barraProgreso.addEventListener("click", (e) => {
       adelantarRetroceder(e, numero);
     });
   });
 });
 
-// Controlar reproducción (solo si el player ya está listo)
 function controlarReproduccion(numero) {
-  // verificamos que el player exista y esté listo
-  if (!canciones[numero] || !canciones[numero].player || !playerListo[numero]) return;
-
-  const player = canciones[numero].player;
+  const player = canciones[numero]?.player;
+  if (!apiCargada || !player) {
+    console.warn(`Player de la canción ${numero} aún no está listo.`);
+    return;
+  }
 
   if (estaReproduciendo && cancionActual === numero) {
     player.pauseVideo();
   } else {
-    if (cancionActual !== numero && cancionActual !== null && canciones[cancionActual]?.player) {
+    if (cancionActual !== numero && canciones[cancionActual]?.player) {
       canciones[cancionActual].player.pauseVideo();
     }
     player.playVideo();
@@ -239,23 +205,24 @@ function controlarReproduccion(numero) {
 }
 
 function adelantarRetroceder(e, numero) {
-  const player = canciones[numero].player;
+  const player = canciones[numero]?.player;
+  if (!player || !player.getDuration) return;
 
-  if (player && player.getDuration) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const nuevoPorcentaje = (clickX / rect.width) * 100;
-    const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
+  const rect = e.currentTarget.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const nuevoPorcentaje = (clickX / rect.width) * 100;
+  const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
 
-    player.seekTo(nuevoTiempo, true);
+  player.seekTo(nuevoTiempo, true);
 
-    if (!estaReproduciendo || cancionActual !== numero) {
-      if (cancionActual !== numero && canciones[cancionActual]?.player) {
-        canciones[cancionActual].player.pauseVideo();
-      }
-      player.playVideo();
+  if (!estaReproduciendo || cancionActual !== numero) {
+    if (cancionActual !== numero && canciones[cancionActual]?.player) {
+      canciones[cancionActual].player.pauseVideo();
     }
+    player.playVideo();
   }
 }
+
+
 
 
