@@ -45,6 +45,13 @@ let estaReproduciendo = false;
 let intervaloProgreso;
 let apiYouTubeCargada = false;
 
+// Detectar si es dispositivo móvil
+function esDispositivoMovil() {
+  return (('ontouchstart' in window) ||
+    (navigator.maxTouchPoints > 0) ||
+    (navigator.msMaxTouchPoints > 0));
+}
+
 // Función global que YouTube espera
 window.onYouTubeIframeAPIReady = function() {
   console.log('YouTube API cargada correctamente');
@@ -269,6 +276,8 @@ function generarGaleriaMusica() {
 
 // Controlar reproducción
 function controlarReproduccion(numero) {
+  console.log('🎵 Intentando reproducir canción:', numero);
+  
   if (!canciones[numero] || !canciones[numero].estaListo) {
     console.warn(`Reproductor ${numero} no está listo`);
     return;
@@ -304,8 +313,27 @@ function adelantarRetroceder(event, numero) {
   player.seekTo(nuevoTiempo, true);
 }
 
-// Configurar event listeners
+// Adelantar/retroceder para móvil (con eventos táctiles)
+function adelantarRetrocederMovil(event, numero) {
+  if (!canciones[numero] || !canciones[numero].estaListo) return;
+
+  const barraProgreso = document.getElementById(`barra_progreso_${numero}`);
+  const rect = barraProgreso.getBoundingClientRect();
+  const touch = event.changedTouches[0];
+  const touchX = touch.clientX - rect.left;
+  const porcentaje = (touchX / rect.width) * 100;
+  
+  const player = canciones[numero].player;
+  const nuevoTiempo = (porcentaje / 100) * player.getDuration();
+  
+  player.seekTo(nuevoTiempo, true);
+}
+
+// CONFIGURACIÓN DE EVENT LISTENERS MEJORADA PARA MÓVIL
 function configurarEventListeners() {
+  const esMovil = esDispositivoMovil();
+  console.log('📱 Es dispositivo móvil:', esMovil);
+  
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
     
@@ -314,24 +342,55 @@ function configurarEventListeners() {
     const barraProgreso = document.getElementById(`barra_progreso_${numero}`);
 
     if (botonPlay) {
-      botonPlay.addEventListener('click', (e) => {
-        e.stopPropagation();
-        controlarReproduccion(numero);
-      });
+      if (esMovil) {
+        // PARA MÓVIL - Usar eventos táctiles
+        botonPlay.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log('👉 Touch en botón:', numero);
+          controlarReproduccion(numero);
+        }, { passive: false });
+      } else {
+        // PARA DESKTOP - Usar eventos de click
+        botonPlay.addEventListener('click', (e) => {
+          e.stopPropagation();
+          controlarReproduccion(numero);
+        });
+      }
     }
 
     if (portada) {
-      portada.addEventListener('click', (e) => {
-        if (!e.target.closest('.boton_play_pausa') && !e.target.closest('.barra_progreso')) {
-          controlarReproduccion(numero);
-        }
-      });
+      if (esMovil) {
+        // PARA MÓVIL
+        portada.addEventListener('touchend', function(e) {
+          if (!e.target.closest('.boton_play_pausa') && !e.target.closest('.barra_progreso')) {
+            e.preventDefault();
+            controlarReproduccion(numero);
+          }
+        }, { passive: false });
+      } else {
+        // PARA DESKTOP
+        portada.addEventListener('click', (e) => {
+          if (!e.target.closest('.boton_play_pausa') && !e.target.closest('.barra_progreso')) {
+            controlarReproduccion(numero);
+          }
+        });
+      }
     }
 
     if (barraProgreso) {
-      barraProgreso.addEventListener('click', (e) => {
-        adelantarRetroceder(e, numero);
-      });
+      if (esMovil) {
+        // PARA MÓVIL
+        barraProgreso.addEventListener('touchend', function(e) {
+          e.preventDefault();
+          adelantarRetrocederMovil(e, numero);
+        }, { passive: false });
+      } else {
+        // PARA DESKTOP
+        barraProgreso.addEventListener('click', (e) => {
+          adelantarRetroceder(e, numero);
+        });
+      }
     }
   });
 }
@@ -365,4 +424,3 @@ setTimeout(() => {
     inicializarTodosLosReproductores();
   }
 }, 3000);
-
