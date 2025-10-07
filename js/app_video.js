@@ -42,7 +42,6 @@ function onYouTubeIframeAPIReady() {
 // Función para abrir video en modal
 function abrirVideo(videoId) {
     const modal = document.getElementById('modal_video');
-    const botonCanal = document.querySelector('.boton_canal');
     
     // Crear o actualizar el reproductor
     if (!player) {
@@ -77,6 +76,7 @@ function onPlayerReady(event) {
     console.log("Reproductor listo");
 }
 
+// Función para manejar cambios de estado del video
 function onPlayerStateChange(event) {
 }
 
@@ -131,5 +131,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
-
