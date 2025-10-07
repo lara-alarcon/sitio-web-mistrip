@@ -65,6 +65,7 @@ function onYouTubeIframeAPIReady() {
         modestbranding: 1,
         showinfo: 0,
         enablejsapi: 1,
+        volume: 0
       },
       events: {
         onReady: (event) => onPlayerReady(event, numero),
@@ -80,7 +81,6 @@ function onYouTubeIframeAPIReady() {
 function onPlayerReady(event, numero) {
   const player = canciones[numero].player;
   const duration = player.getDuration();
-  player.mute(); 
 
   if (duration > 0) {
     document.getElementById(`tiempo_total_${numero}`).textContent =
@@ -96,9 +96,9 @@ function onPlayerStateChange(event, numero) {
   const botonPlay = document.getElementById(`boton_play_pausa_${numero}`);
 
   if (event.data == YT.PlayerState.PLAYING) {
-    if (player.isMuted()) {
-        player.unMute();
-    }
+    if (player.getVolume() === 0) {
+        player.setVolume(100); 
+    }
     
     estaReproduciendo = true;
     cancionActual = numero;
@@ -254,3 +254,4 @@ function adelantarRetroceder(e, numero) {
     }
   }
 }
+
