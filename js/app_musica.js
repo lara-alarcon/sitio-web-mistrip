@@ -43,24 +43,70 @@ const canciones = {};
 let cancionActual = null;
 let estaReproduciendo = false;
 let intervaloProgreso;
-let apiLista = false;
-let reproductoresListos = 0;
+let apiCargada = false;
+let inicializacionEnProgreso = false;
 
-// Inicializar la API de YouTube
-function onYouTubeIframeAPIReady() {
-  console.log('YouTube API Ready - Inicializando reproductores...');
+// Cargar API de YouTube de forma segura
+function cargarYouTubeAPI() {
+  if (window.YT && window.YT.Player) {
+    console.log('YouTube API ya está cargada');
+    inicializarReproductores();
+    return;
+  }
+
+  const tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  tag.onerror = function() {
+    console.error('Error al cargar YouTube API');
+    mostrarErrorCarga();
+  };
+  const firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+}
+
+// Función global que YouTube API espera
+window.onYouTubeIframeAPIReady = function() {
+  console.log('YouTube Iframe API Ready');
+  apiCargada = true;
+  inicializarReproductores();
+};
+
+// Inicializar reproductores con retry
+function inicializarReproductores() {
+  if (inicializacionEnProgreso) return;
+  
+  inicializacionEnProgreso = true;
+  console.log('Inicializando reproductores...');
+
+  let reproductoresCreados = 0;
+  const totalReproductores = misCanciones.length;
+
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
-
+    
+    // Inicializar objeto de canción
     canciones[numero] = {
       videoId: cancion.id,
       player: null,
       estaListo: false,
-      elemento: null
+      intentos: 0,
+      maxIntentos: 3
     };
 
-    const config = {
-      videoId: cancion.id,
+    // Crear reproductor con retry
+    crearReproductor(numero, cancion.id);
+  });
+}
+
+function crearReproductor(numero, videoId, reintento = false) {
+  if (reintento) {
+    canciones[numero].intentos++;
+    console.log(`Reintentando crear reproductor ${numero}, intento ${canciones[numero].intentos}`);
+  }
+
+  try {
+    const playerConfig = {
+      videoId: videoId,
       height: "0",
       width: "0",
       playerVars: {
@@ -70,55 +116,101 @@ function onYouTubeIframeAPIReady() {
         modestbranding: 1,
         showinfo: 0,
         enablejsapi: 1,
+        origin: window.location.origin // Importante para CORS
       },
       events: {
         onReady: (event) => onPlayerReady(event, numero),
         onStateChange: (event) => onPlayerStateChange(event, numero),
-        onError: (event) => onPlayerError(event, numero)
-      },
+        onError: (event) => onPlayerError(event, numero),
+        onApiChange: (event) => onApiChange(event, numero)
+      }
     };
 
-    try {
-      canciones[numero].player = new YT.Player(`player_${numero}`, config);
-      canciones[numero].elemento = document.getElementById(`player_${numero}`);
-    } catch (error) {
-      console.error(`Error creando reproductor ${numero}:`, error);
-      canciones[numero].estaListo = false;
+    canciones[numero].player = new YT.Player(`player_${numero}`, playerConfig);
+    
+    if (!reintento) {
+      console.log(`Reproductor ${numero} creado exitosamente`);
     }
-  });
+
+  } catch (error) {
+    console.error(`Error creando reproductor ${numero}:`, error);
+    
+    if (canciones[numero].intentos < canciones[numero].maxIntentos) {
+      setTimeout(() => crearReproductor(numero, videoId, true), 1000 * canciones[numero].intentos);
+    } else {
+      console.error(`No se pudo crear el reproductor ${numero} después de ${canciones[numero].maxIntentos} intentos`);
+      marcarReproductorComoFallido(numero);
+    }
+  }
+}
+
+function marcarReproductorComoFallido(numero) {
+  const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
+  if (btnPlay) {
+    btnPlay.textContent = "❌";
+    btnPlay.title = "Error al cargar el reproductor";
+    btnPlay.style.cursor = "not-allowed";
+  }
+}
+
+function mostrarErrorCarga() {
+  // Opcional: mostrar un mensaje al usuario
+  console.error('No se pudo cargar el reproductor de YouTube');
 }
 
 // Reproductor listo
 function onPlayerReady(event, numero) {
   console.log(`Reproductor ${numero} listo`);
-  const player = canciones[numero].player;
   canciones[numero].estaListo = true;
-  reproductoresListos++;
 
-  const duration = player.getDuration();
-  if (duration > 0) {
-    document.getElementById(`tiempo_total_${numero}`).textContent =
-      formatearTiempo(duration);
+  const player = canciones[numero].player;
+  
+  try {
+    const duration = player.getDuration();
+    if (duration > 0) {
+      document.getElementById(`tiempo_total_${numero}`).textContent = formatearTiempo(duration);
+    }
+  } catch (error) {
+    console.warn(`No se pudo obtener duración del reproductor ${numero}:`, error);
+    // Intentar nuevamente después de un tiempo
+    setTimeout(() => {
+      try {
+        const duration = player.getDuration();
+        if (duration > 0) {
+          document.getElementById(`tiempo_total_${numero}`).textContent = formatearTiempo(duration);
+        }
+      } catch (e) {
+        console.error(`Error persistente al obtener duración:`, e);
+      }
+    }, 1000);
   }
 
-  if (canciones[numero].elemento) {
-    canciones[numero].elemento.style.display = "none";
-  }
-
-  // Verificar si todos los reproductores están listos
-  if (reproductoresListos === misCanciones.length) {
-    apiLista = true;
-    console.log('Todos los reproductores están listos');
+  document.getElementById(`player_${numero}`).style.display = "none";
+  
+  // Habilitar botón de play
+  const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
+  if (btnPlay) {
+    btnPlay.disabled = false;
+    btnPlay.textContent = "▶";
   }
 }
 
-// Manejar errores del reproductor
 function onPlayerError(event, numero) {
   console.error(`Error en reproductor ${numero}:`, event.data);
   canciones[numero].estaListo = false;
+  
+  const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
+  if (btnPlay) {
+    btnPlay.textContent = "⚠";
+    btnPlay.title = "Error en el reproductor";
+  }
 }
 
-// Cambia el estado del reproductor
+function onApiChange(event, numero) {
+  console.log(`API change en reproductor ${numero}:`, event);
+}
+
+// Resto de las funciones permanecen igual pero con mejor manejo de errores
 function onPlayerStateChange(event, numero) {
   if (!canciones[numero] || !canciones[numero].estaListo) return;
 
@@ -126,37 +218,50 @@ function onPlayerStateChange(event, numero) {
   const portada = document.getElementById(`cancion_portada_${numero}`);
   const botonPlay = document.getElementById(`boton_play_pausa_${numero}`);
 
-  if (event.data == YT.PlayerState.PLAYING) {
-    estaReproduciendo = true;
-    cancionActual = numero;
+  if (!portada || !botonPlay) return;
 
-    botonPlay.textContent = "⏸";
-    document.getElementById(`punto_progreso_${numero}`).style.display = "block";
-    portada.classList.add("reproduciendo");
+  try {
+    if (event.data == YT.PlayerState.PLAYING) {
+      estaReproduciendo = true;
+      cancionActual = numero;
 
-    clearInterval(intervaloProgreso);
-    intervaloProgreso = setInterval(() => actualizarProgreso(numero), 500);
-  } else if (event.data == YT.PlayerState.PAUSED) {
-    estaReproduciendo = false;
-    botonPlay.textContent = "▶";
-    document.getElementById(`punto_progreso_${numero}`).style.display = "none";
-    portada.classList.remove("reproduciendo");
-    clearInterval(intervaloProgreso);
-  } else if (event.data == YT.PlayerState.ENDED) {
-    estaReproduciendo = false;
-    cancionActual = null;
-    botonPlay.textContent = "▶";
-    document.getElementById(`punto_progreso_${numero}`).style.display = "none";
-    resetearProgreso(numero);
-    portada.classList.remove("reproduciendo");
-    clearInterval(intervaloProgreso);
+      botonPlay.textContent = "⏸";
+      const puntoProgreso = document.getElementById(`punto_progreso_${numero}`);
+      if (puntoProgreso) puntoProgreso.style.display = "block";
+      portada.classList.add("reproduciendo");
+
+      clearInterval(intervaloProgreso);
+      intervaloProgreso = setInterval(() => actualizarProgreso(numero), 500);
+    } else if (event.data == YT.PlayerState.PAUSED) {
+      estaReproduciendo = false;
+      botonPlay.textContent = "▶";
+      const puntoProgreso = document.getElementById(`punto_progreso_${numero}`);
+      if (puntoProgreso) puntoProgreso.style.display = "none";
+      portada.classList.remove("reproduciendo");
+      clearInterval(intervaloProgreso);
+    } else if (event.data == YT.PlayerState.ENDED) {
+      estaReproduciendo = false;
+      cancionActual = null;
+      botonPlay.textContent = "▶";
+      const puntoProgreso = document.getElementById(`punto_progreso_${numero}`);
+      if (puntoProgreso) puntoProgreso.style.display = "none";
+      resetearProgreso(numero);
+      portada.classList.remove("reproduciendo");
+      clearInterval(intervaloProgreso);
+    }
+  } catch (error) {
+    console.error(`Error en onPlayerStateChange para reproductor ${numero}:`, error);
   }
 }
 
 function resetearProgreso(numero) {
-  document.getElementById(`progreso_${numero}`).style.width = "0%";
-  document.getElementById(`punto_progreso_${numero}`).style.left = "0%";
-  document.getElementById(`tiempo_actual_${numero}`).textContent = "0:00";
+  const progreso = document.getElementById(`progreso_${numero}`);
+  const puntoProgreso = document.getElementById(`punto_progreso_${numero}`);
+  const tiempoActual = document.getElementById(`tiempo_actual_${numero}`);
+  
+  if (progreso) progreso.style.width = "0%";
+  if (puntoProgreso) puntoProgreso.style.left = "0%";
+  if (tiempoActual) tiempoActual.textContent = "0:00";
 }
 
 function formatearTiempo(segundos) {
@@ -170,66 +275,91 @@ function actualizarProgreso(numero) {
   
   const player = canciones[numero].player;
   if (player && player.getCurrentTime) {
-    const tiempoActual = player.getCurrentTime();
-    const duracion = player.getDuration();
-    const porcentaje = (tiempoActual / duracion) * 100;
+    try {
+      const tiempoActual = player.getCurrentTime();
+      const duracion = player.getDuration();
+      const porcentaje = (tiempoActual / duracion) * 100;
 
-    document.getElementById(`progreso_${numero}`).style.width =
-      porcentaje + "%";
-    document.getElementById(`punto_progreso_${numero}`).style.left =
-      porcentaje + "%";
-    document.getElementById(`tiempo_actual_${numero}`).textContent =
-      formatearTiempo(tiempoActual);
+      const progreso = document.getElementById(`progreso_${numero}`);
+      const puntoProgreso = document.getElementById(`punto_progreso_${numero}`);
+      const tiempoActualElement = document.getElementById(`tiempo_actual_${numero}`);
+
+      if (progreso) progreso.style.width = porcentaje + "%";
+      if (puntoProgreso) puntoProgreso.style.left = porcentaje + "%";
+      if (tiempoActualElement) tiempoActualElement.textContent = formatearTiempo(tiempoActual);
+    } catch (error) {
+      console.error(`Error actualizando progreso ${numero}:`, error);
+    }
   }
 }
 
 // Generar galería de canciones
 function generarGaleriaMusica() {
   const galeria = document.getElementById("galeria_musica");
+  if (!galeria) {
+    console.error('Elemento galeria_musica no encontrado');
+    return;
+  }
 
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
 
     const cancionHTML = `
-            <div class="contenedor_cancion">
-              <div class="cancion_portada" id="cancion_portada_${numero}">
-                <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" alt="${cancion.titulo}" />
-                <button class="boton_play_pausa" id="boton_play_pausa_${numero}">▶</button>
+      <div class="contenedor_cancion">
+        <div class="cancion_portada" id="cancion_portada_${numero}">
+          <img src="https://img.youtube.com/vi/${cancion.id}/maxresdefault.jpg" alt="${cancion.titulo}" 
+               onerror="this.src='https://img.youtube.com/vi/${cancion.id}/hqdefault.jpg'" />
+          <button class="boton_play_pausa" id="boton_play_pausa_${numero}" disabled>⌛</button>
 
-                <div id="player_${numero}" style="display: none"></div>
-                <div class="contenedor_barra_progreso" id="contenedor_barra_progreso_${numero}">
-                  <div class="barra_progreso" id="barra_progreso_${numero}">
-                    <div class="progreso" id="progreso_${numero}"></div>
-                    <div class="punto_progreso" id="punto_progreso_${numero}"></div>
-                  </div>
-                  <div class="video_reproductor_tiempo">
-                    <span class="tiempo_actual" id="tiempo_actual_${numero}">0:00</span>
-                    <span class="tiempo_total" id="tiempo_total_${numero}">0:00</span>
-                  </div>
-                </div>
-              </div>
-              <div class="info_cancion">
-                <h3 class="titulo_cancion">${cancion.titulo}</h3>
-                <p class="artista_cancion">${cancion.artista} • ${cancion.año}</p>
-              </div>
+          <div id="player_${numero}" style="display: none"></div>
+          <div class="contenedor_barra_progreso" id="contenedor_barra_progreso_${numero}">
+            <div class="barra_progreso" id="barra_progreso_${numero}">
+              <div class="progreso" id="progreso_${numero}"></div>
+              <div class="punto_progreso" id="punto_progreso_${numero}"></div>
             </div>
-          `;
+            <div class="video_reproductor_tiempo">
+              <span class="tiempo_actual" id="tiempo_actual_${numero}">0:00</span>
+              <span class="tiempo_total" id="tiempo_total_${numero}">0:00</span>
+            </div>
+          </div>
+        </div>
+        <div class="info_cancion">
+          <h3 class="titulo_cancion">${cancion.titulo}</h3>
+          <p class="artista_cancion">${cancion.artista} • ${cancion.año}</p>
+        </div>
+      </div>
+    `;
     galeria.innerHTML += cancionHTML;
   });
 }
 
 // DOM listo
 document.addEventListener("DOMContentLoaded", function () {
+  console.log('DOM cargado, generando galería...');
   generarGaleriaMusica();
+  
+  // Cargar API después de generar la galería
+  setTimeout(() => {
+    cargarYouTubeAPI();
+  }, 100);
 
-  // Configurar event listeners para cada canción
+  // Configurar event listeners después de un breve delay
+  setTimeout(() => {
+    configurarEventListeners();
+  }, 500);
+});
+
+function configurarEventListeners() {
   misCanciones.forEach((cancion, index) => {
     const numero = index + 1;
     const portada = document.getElementById(`cancion_portada_${numero}`);
     const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
     const barraProgreso = document.getElementById(`barra_progreso_${numero}`);
 
-    if (!portada || !btnPlay || !barraProgreso) return;
+    if (!portada || !btnPlay || !barraProgreso) {
+      console.warn(`Elementos no encontrados para canción ${numero}`);
+      return;
+    }
 
     btnPlay.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -237,10 +367,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     portada.addEventListener("click", function (e) {
-      if (
-        !e.target.closest(".boton_play_pausa") &&
-        !e.target.closest(".barra_progreso")
-      ) {
+      if (!e.target.closest(".boton_play_pausa") && !e.target.closest(".barra_progreso")) {
         controlarReproduccion(numero);
       }
     });
@@ -249,40 +376,43 @@ document.addEventListener("DOMContentLoaded", function () {
       adelantarRetroceder(e, numero);
     });
   });
-});
+}
 
 function controlarReproduccion(numero) {
   // Verificar si el reproductor está listo
   if (!canciones[numero] || !canciones[numero].estaListo) {
     console.warn(`Reproductor ${numero} no está listo aún`);
     
-    // Mostrar mensaje de carga
     const btnPlay = document.getElementById(`boton_play_pausa_${numero}`);
-    const originalText = btnPlay.textContent;
-    btnPlay.textContent = "⋯";
-    btnPlay.disabled = true;
-    
-    // Intentar nuevamente después de un breve tiempo
-    setTimeout(() => {
-      btnPlay.textContent = originalText;
-      btnPlay.disabled = false;
-      if (canciones[numero] && canciones[numero].estaListo) {
-        controlarReproduccion(numero);
-      }
-    }, 500);
-    
+    if (btnPlay) {
+      const originalText = btnPlay.textContent;
+      btnPlay.textContent = "⌛";
+      btnPlay.disabled = true;
+      
+      setTimeout(() => {
+        btnPlay.textContent = originalText;
+        btnPlay.disabled = false;
+        if (canciones[numero] && canciones[numero].estaListo) {
+          controlarReproduccion(numero);
+        }
+      }, 1000);
+    }
     return;
   }
 
-  const player = canciones[numero].player;
+  try {
+    const player = canciones[numero].player;
 
-  if (estaReproduciendo && cancionActual === numero) {
-    player.pauseVideo();
-  } else {
-    if (cancionActual !== numero && canciones[cancionActual]?.player) {
-      canciones[cancionActual].player.pauseVideo();
+    if (estaReproduciendo && cancionActual === numero) {
+      player.pauseVideo();
+    } else {
+      if (cancionActual !== numero && canciones[cancionActual]?.player) {
+        canciones[cancionActual].player.pauseVideo();
+      }
+      player.playVideo();
     }
-    player.playVideo();
+  } catch (error) {
+    console.error(`Error controlando reproducción ${numero}:`, error);
   }
 }
 
@@ -292,37 +422,34 @@ function adelantarRetroceder(e, numero) {
     return;
   }
 
-  const player = canciones[numero].player;
+  try {
+    const player = canciones[numero].player;
 
-  if (player && player.getDuration) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const nuevoPorcentaje = (clickX / rect.width) * 100;
-    const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
+    if (player && player.getDuration) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const nuevoPorcentaje = (clickX / rect.width) * 100;
+      const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
 
-    player.seekTo(nuevoTiempo, true);
+      player.seekTo(nuevoTiempo, true);
 
-    if (!estaReproduciendo || cancionActual !== numero) {
-      if (cancionActual !== numero && canciones[cancionActual]?.player) {
-        canciones[cancionActual].player.pauseVideo();
+      if (!estaReproduciendo || cancionActual !== numero) {
+        if (cancionActual !== numero && canciones[cancionActual]?.player) {
+          canciones[cancionActual].player.pauseVideo();
+        }
+        player.playVideo();
       }
-      player.playVideo();
     }
+  } catch (error) {
+    console.error(`Error adelantando/retrocediendo ${numero}:`, error);
   }
 }
 
-// Función para verificar el estado de los reproductores (útil para debugging)
-function verificarEstadoReproductores() {
-  console.log('Estado de los reproductores:');
-  misCanciones.forEach((cancion, index) => {
-    const numero = index + 1;
-    console.log(`Reproductor ${numero}:`, {
-      listo: canciones[numero]?.estaListo || false,
-      existe: !!canciones[numero],
-      player: !!canciones[numero]?.player
-    });
-  });
-}
+// Verificar estado periódicamente
+setInterval(() => {
+  if (!apiCargada && !inicializacionEnProgreso) {
+    console.log('Reintentando cargar API...');
+    cargarYouTubeAPI();
+  }
+}, 5000);
 
-// Verificar después de un tiempo por si hay problemas
-setTimeout(verificarEstadoReproductores, 5000);
