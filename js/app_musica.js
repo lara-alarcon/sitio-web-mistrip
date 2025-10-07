@@ -40,6 +40,7 @@ const misCanciones = [
 
 // YouTube IFrame API
 const canciones = {};
+const playerListo = {}; // <-- nuevo objeto para saber si el player está listo
 let cancionActual = null;
 let estaReproduciendo = false;
 let intervaloProgreso;
@@ -79,6 +80,8 @@ function onYouTubeIframeAPIReady() {
 // Reproductor listo
 function onPlayerReady(event, numero) {
   const player = canciones[numero].player;
+  playerListo[numero] = true; // <-- marcamos el player como listo
+
   const duration = player.getDuration();
 
   if (duration > 0) {
@@ -218,15 +221,15 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 
+// Controlar reproducción (solo si el player ya está listo)
 function controlarReproduccion(numero) {
-  const player = canciones[numero].player;
+  if (!playerListo[numero]) return; // <-- evita errores al hacer click antes de que cargue
 
-  if (!player) return;
+  const player = canciones[numero].player;
 
   if (estaReproduciendo && cancionActual === numero) {
     player.pauseVideo();
   } else {
-    // Pausar otra canción si está reproduciéndose
     if (cancionActual !== numero && cancionActual !== null && canciones[cancionActual]?.player) {
       canciones[cancionActual].player.pauseVideo();
     }
@@ -237,19 +240,20 @@ function controlarReproduccion(numero) {
 function adelantarRetroceder(e, numero) {
   const player = canciones[numero].player;
 
-  if (!player || !player.getDuration) return;
+  if (player && player.getDuration) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const nuevoPorcentaje = (clickX / rect.width) * 100;
+    const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
 
-  const rect = e.currentTarget.getBoundingClientRect();
-  const clickX = e.clientX - rect.left;
-  const nuevoPorcentaje = (clickX / rect.width) * 100;
-  const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
+    player.seekTo(nuevoTiempo, true);
 
-  player.seekTo(nuevoTiempo, true);
-
-  if (!estaReproduciendo || cancionActual !== numero) {
-    if (cancionActual !== numero && cancionActual !== null && canciones[cancionActual]?.player) {
-      canciones[cancionActual].player.pauseVideo();
+    if (!estaReproduciendo || cancionActual !== numero) {
+      if (cancionActual !== numero && canciones[cancionActual]?.player) {
+        canciones[cancionActual].player.pauseVideo();
+      }
+      player.playVideo();
     }
-    player.playVideo();
   }
 }
+
