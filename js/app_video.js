@@ -77,8 +77,8 @@ function onPlayerReady(event) {
     console.log("Reproductor listo");
 }
 
-//function onPlayerStateChange(event) {
-//}
+function onPlayerStateChange(event) {
+}
 
 // Función para cerrar modal
 function cerrarModal() {
@@ -131,4 +131,5 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
 
