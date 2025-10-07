@@ -223,7 +223,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Controlar reproducción (solo si el player ya está listo)
 function controlarReproduccion(numero) {
-  if (!playerListo[numero]) return; // <-- evita errores al hacer click antes de que cargue
+  // verificamos que el player exista y esté listo
+  if (!canciones[numero] || !canciones[numero].player || !playerListo[numero]) return;
 
   const player = canciones[numero].player;
 
@@ -256,4 +257,5 @@ function adelantarRetroceder(e, numero) {
     }
   }
 }
+
 
