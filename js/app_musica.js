@@ -65,7 +65,6 @@ function onYouTubeIframeAPIReady() {
         modestbranding: 1,
         showinfo: 0,
         enablejsapi: 1,
-        volume: 0
       },
       events: {
         onReady: (event) => onPlayerReady(event, numero),
@@ -79,14 +78,15 @@ function onYouTubeIframeAPIReady() {
 
 // Reproductor listo
 function onPlayerReady(event, numero) {
-  const player = canciones[numero].player;
-  const duration = player.getDuration();
+  const player = canciones[numero].player;
+  const duration = player.getDuration();
 
-  if (duration > 0) {
-    document.getElementById(`tiempo_total_${numero}`).textContent =
-      formatearTiempo(duration);
-  }
-  document.getElementById(`player_${numero}`).style.display = "none";
+  if (duration > 0) {
+    document.getElementById(`tiempo_total_${numero}`).textContent =
+      formatearTiempo(duration);
+  }
+
+  document.getElementById(`player_${numero}`).style.display = "none";
 }
 
 // Cambia el estado del reproductor
@@ -96,10 +96,6 @@ function onPlayerStateChange(event, numero) {
   const botonPlay = document.getElementById(`boton_play_pausa_${numero}`);
 
   if (event.data == YT.PlayerState.PLAYING) {
-    if (player.getVolume() === 0) {
-        player.setVolume(100); 
-    }
-    
     estaReproduciendo = true;
     cancionActual = numero;
 
@@ -123,10 +119,6 @@ function onPlayerStateChange(event, numero) {
     resetearProgreso(numero);
     portada.classList.remove("reproduciendo");
     clearInterval(intervaloProgreso);
-  } else if (event.data == -1) {
-    // 💡 GESTIÓN DE ERROR (ESTADO UNSTARTED): Si falla, no hacemos nada.
-    // Esto previene que el reproductor quede en un estado indefinido.
-    return;
   }
 }
 
@@ -227,62 +219,34 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 function controlarReproduccion(numero) {
-    const player = canciones[numero].player;
-    const cancion = misCanciones[numero - 1]; 
+  const player = canciones[numero].player;
 
-    if (estaReproduciendo && cancionActual === numero) {
-        // Pausar si es la misma canción
-        player.pauseVideo();
-    } else {
-        // Pausar la canción anterior
-        if (cancionActual !== numero && canciones[cancionActual]?.player) {
-            canciones[cancionActual].player.pauseVideo();
-        }
-
-        // 🔑 SOLUCIÓN DE ÚLTIMA INSTANCIA: Forzar la carga del video. 
-        // Esto es esencial para que el navegador móvil reconozca el clic.
-        player.loadVideoById({
-            'videoId': cancion.id,
-            // Si ya tiene un tiempo, retoma, sino empieza en 0
-            'startSeconds': player.getCurrentTime() > 0 ? player.getCurrentTime() : 0, 
-        });
-        
-        // NO necesitamos player.playVideo() aquí, loadVideoById lo hace automáticamente.
+  if (estaReproduciendo && cancionActual === numero) {
+    player.pauseVideo();
+  } else {
+    if (cancionActual !== numero && canciones[cancionActual]?.player) {
+      canciones[cancionActual].player.pauseVideo();
     }
+    player.playVideo();
+  }
 }
 
 function adelantarRetroceder(e, numero) {
-    // 🛑 CAMBIO CLAVE: Verifica si el objeto player existe.
-    if (!canciones[numero] || !canciones[numero].player) {
-        console.warn(`Error: Reproductor ${numero} no está listo para adelantar/retroceder.`);
-        return; 
-    }
-    
-    const player = canciones[numero].player;
-    const cancion = misCanciones[numero - 1];
+  const player = canciones[numero].player;
 
-    if (player && player.getDuration) {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const clickX = e.clientX - rect.left;
-        const nuevoPorcentaje = (clickX / rect.width) * 100;
-        const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
+  if (player && player.getDuration) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const nuevoPorcentaje = (clickX / rect.width) * 100;
+    const nuevoTiempo = (nuevoPorcentaje / 100) * player.getDuration();
 
-        if (estaReproduciendo && cancionActual === numero) {
-            player.seekTo(nuevoTiempo, true);
-        } else {
-             if (cancionActual !== numero && canciones[cancionActual]?.player) {
-                if (canciones[cancionActual].player.pauseVideo) {
-                    canciones[cancionActual].player.pauseVideo();
-                }
-             }
-            
-            player.loadVideoById({
-                'videoId': cancion.id,
-                'startSeconds': nuevoTiempo,
-            });
-        }
+    player.seekTo(nuevoTiempo, true);
+
+    if (!estaReproduciendo || cancionActual !== numero) {
+      if (cancionActual !== numero && canciones[cancionActual]?.player) {
+        canciones[cancionActual].player.pauseVideo();
+      }
+      player.playVideo();
     }
+  }
 }
-
-
-
